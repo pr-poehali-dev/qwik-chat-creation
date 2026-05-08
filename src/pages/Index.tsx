@@ -13,6 +13,9 @@ type Contact = { id: number; name: string; avatar: string; tag: string; online: 
 type CallRecord = { id: number; name: string; avatar: string; type: "in" | "out" | "missed"; time: string; duration?: string };
 type Story = { id: number; name: string; avatar: string; gradient: string; seen: boolean; content: string };
 type VerifyStyle = "none" | "blue" | "black";
+type ThemeMode = "dark" | "light";
+type ChatKind = "private" | "group" | "channel";
+type Vpn = { id: number; name: string; protocol: string; active: boolean };
 
 /* ============================================================
    ДАННЫЕ
@@ -337,6 +340,7 @@ function ChatView({ chat, onBack, theme, wallpaper }: { chat: Chat; onBack: () =
   const [isRecording, setIsRecording] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
   const [inCall, setInCall] = useState(false);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -444,17 +448,26 @@ function ChatView({ chat, onBack, theme, wallpaper }: { chat: Chat; onBack: () =
         </div>
       </div>
     );
-    if (msg.type === "file") return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon name="FileText" size={18} style={{ color: "#fff" }} />
+    if (msg.type === "file") {
+      const isImg = msg.text && msg.text.startsWith("blob:");
+      if (isImg) {
+        return (
+          <img src={msg.text} alt="" onClick={() => setZoomImage(msg.text)}
+            style={{ maxWidth: 220, maxHeight: 240, borderRadius: 12, cursor: "zoom-in", display: "block" }} />
+        );
+      }
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="FileText" size={18} style={{ color: "#fff" }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{msg.fileName}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{msg.fileSize}</div>
+          </div>
         </div>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{msg.fileName}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{msg.fileSize}</div>
-        </div>
-      </div>
-    );
+      );
+    }
     return <span>{msg.text}</span>;
   };
 
@@ -598,6 +611,16 @@ function ChatView({ chat, onBack, theme, wallpaper }: { chat: Chat; onBack: () =
           </div>
         );
       })()}
+
+      {/* Зум изображения */}
+      {zoomImage && (
+        <div onClick={() => setZoomImage(null)} className="anim-fade" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <button onClick={() => setZoomImage(null)} style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 1 }}>
+            <Icon name="X" size={20} style={{ color: "#fff" }} />
+          </button>
+          <img src={zoomImage} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+        </div>
+      )}
     </div>
   );
 }
@@ -785,25 +808,52 @@ function CallsTab({ theme }: { theme: Theme }) {
 /* ============================================================
    ПРОФИЛЬ
    ============================================================ */
-function ProfileTab({ theme, verifyStyle }: { theme: Theme; verifyStyle: VerifyStyle }) {
+function ProfileTab({ theme, verifyStyle, profileAvatar, setProfileAvatar, profileName, setProfileName, profileTag, setProfileTag }: { theme: Theme; verifyStyle: VerifyStyle; profileAvatar: string; setProfileAvatar: (s: string) => void; profileName: string; setProfileName: (s: string) => void; profileTag: string; setProfileTag: (s: string) => void; }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [editing, setEditing] = useState(false);
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) {
+      const reader = new FileReader();
+      reader.onload = ev => setProfileAvatar(String(ev.target?.result ?? ""));
+      reader.readAsDataURL(f);
+    }
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
       <div style={{ padding: "32px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-        <div style={{ position: "relative" }}>
-          <div style={{ width: 88, height: 88, borderRadius: "50%", background: theme.gradient, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 800, color: "#fff", boxShadow: `0 0 0 3px var(--q-bg), 0 0 0 5px ${theme.accent1}` }}>ВС</div>
+        <div style={{ position: "relative" }} onClick={() => fileRef.current?.click()}>
+          {profileAvatar ? (
+            <img src={profileAvatar} alt="" style={{ width: 88, height: 88, borderRadius: "50%", objectFit: "cover", boxShadow: `0 0 0 3px var(--q-bg), 0 0 0 5px ${theme.accent1}`, cursor: "pointer" }} />
+          ) : (
+            <div style={{ width: 88, height: 88, borderRadius: "50%", background: theme.gradient, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 800, color: "#fff", boxShadow: `0 0 0 3px var(--q-bg), 0 0 0 5px ${theme.accent1}`, cursor: "pointer" }}>{profileName.split(" ").map(s => s[0]).join("").slice(0, 2)}</div>
+          )}
           <button style={{ position: "absolute", bottom: 0, right: 0, background: theme.gradient, border: "2px solid var(--q-bg)", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <Icon name="Camera" size={13} style={{ color: "#fff" }} />
           </button>
         </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            Виктор Самойлов
-            <VerifyBadge style={verifyStyle} />
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} />
+
+        {editing ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 280 }}>
+            <input value={profileName} onChange={e => setProfileName(e.target.value)} placeholder="Имя"
+              className="q-glass" style={{ borderRadius: 12, padding: "10px 14px", color: "var(--q-text)", fontSize: 14, fontFamily: "Golos Text, sans-serif", border: "1px solid var(--q-border)", outline: "none", textAlign: "center", fontWeight: 700 }} />
+            <input value={profileTag} onChange={e => setProfileTag(e.target.value.startsWith("@") ? e.target.value : "@" + e.target.value)} placeholder="@username"
+              className="q-glass" style={{ borderRadius: 12, padding: "10px 14px", color: theme.accent1, fontSize: 13, fontFamily: "Golos Text, sans-serif", border: "1px solid var(--q-border)", outline: "none", textAlign: "center", fontWeight: 600 }} />
           </div>
-          <div style={{ fontSize: 13, color: theme.accent1, marginTop: 2, fontWeight: 600 }}>@v_samoilov</div>
-          <div style={{ fontSize: 13, color: "var(--q-text-muted)", marginTop: 6 }}>Разработчик. Кофе. Код. Мемы 🚀</div>
-        </div>
-        <button style={{ background: theme.gradient, border: "none", borderRadius: 14, padding: "9px 24px", fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer", fontFamily: "Golos Text, sans-serif" }}>Редактировать профиль</button>
+        ) : (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 20, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              {profileName}
+              <VerifyBadge style={verifyStyle} />
+            </div>
+            <div style={{ fontSize: 13, color: theme.accent1, marginTop: 2, fontWeight: 600 }}>{profileTag}</div>
+            <div style={{ fontSize: 13, color: "var(--q-text-muted)", marginTop: 6 }}>Разработчик. Кофе. Код. Мемы 🚀</div>
+          </div>
+        )}
+        <button onClick={() => setEditing(!editing)} style={{ background: theme.gradient, border: "none", borderRadius: 14, padding: "9px 24px", fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer", fontFamily: "Golos Text, sans-serif" }}>
+          {editing ? "Сохранить" : "Редактировать профиль"}
+        </button>
       </div>
       <div style={{ display: "flex", gap: 8, padding: "0 20px 20px" }}>
         {[{ label: "Чатов", val: "23" }, { label: "Контактов", val: "147" }, { label: "Медиа", val: "1.2K" }].map(s => (
@@ -831,10 +881,13 @@ function ProfileTab({ theme, verifyStyle }: { theme: Theme; verifyStyle: VerifyS
 /* ============================================================
    НАСТРОЙКИ
    ============================================================ */
-function SettingsTab({ theme, setTheme, wallpaper, setWallpaper, verifyStyle, setVerifyStyle }: {
+function SettingsTab({ theme, setTheme, wallpaper, setWallpaper, verifyStyle, setVerifyStyle, themeMode, setThemeMode, onOpenVpn, statusAutoDelete, setStatusAutoDelete }: {
   theme: Theme; setTheme: (t: Theme) => void;
   wallpaper: Wallpaper; setWallpaper: (w: Wallpaper) => void;
   verifyStyle: VerifyStyle; setVerifyStyle: (s: VerifyStyle) => void;
+  themeMode: ThemeMode; setThemeMode: (m: ThemeMode) => void;
+  onOpenVpn: () => void;
+  statusAutoDelete: boolean; setStatusAutoDelete: (b: boolean) => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
@@ -862,6 +915,49 @@ function SettingsTab({ theme, setTheme, wallpaper, setWallpaper, verifyStyle, se
               <div style={{ fontSize: 12, fontWeight: 600, color: verifyStyle === id ? "var(--q-text)" : "var(--q-text-muted)" }}>{label}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Светлая/Тёмная */}
+      <div style={{ padding: "0 20px 20px" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--q-text-muted)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>🌓 Режим</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          {(["dark", "light"] as ThemeMode[]).map(m => (
+            <div key={m} onClick={() => setThemeMode(m)} style={{ flex: 1, borderRadius: 14, padding: "14px", textAlign: "center", cursor: "pointer", border: `2px solid ${themeMode === m ? theme.accent1 : "rgba(255,255,255,0.06)"}`, background: m === "dark" ? "#0d0f1a" : "#f5f5f7", transition: "all 0.2s" }}>
+              <Icon name={m === "dark" ? "Moon" : "Sun"} size={22} style={{ color: m === "dark" ? "#fff" : "#111", marginBottom: 4 }} />
+              <div style={{ fontSize: 12, fontWeight: 600, color: m === "dark" ? "#fff" : "#111" }}>{m === "dark" ? "Тёмная" : "Светлая"}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* VPN и прокси */}
+      <div style={{ padding: "0 20px 14px" }}>
+        <div onClick={onOpenVpn} className="q-glass q-glass-hover" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, cursor: "pointer" }}>
+          <div style={{ background: `${theme.accent1}22`, borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="Shield" size={18} style={{ color: theme.accent1 }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 500 }}>VPN и прокси</div>
+            <div style={{ fontSize: 12, color: "var(--q-text-muted)" }}>VLESS, Reality, SOCKS5, WSS</div>
+          </div>
+          <Icon name="ChevronRight" size={16} style={{ color: "var(--q-text-muted)" }} />
+        </div>
+      </div>
+
+      {/* Авто-удаление статусов */}
+      <div style={{ padding: "0 20px 20px" }}>
+        <div className="q-glass" style={{ borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ background: `${theme.accent1}22`, borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="Clock" size={18} style={{ color: theme.accent1 }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 500 }}>Авто-удаление статусов</div>
+            <div style={{ fontSize: 12, color: "var(--q-text-muted)" }}>Через 24 часа</div>
+          </div>
+          <div onClick={() => setStatusAutoDelete(!statusAutoDelete)} style={{ width: 42, height: 24, borderRadius: 12, background: statusAutoDelete ? theme.accent1 : "rgba(255,255,255,0.15)", position: "relative", cursor: "pointer", transition: "background 0.2s" }}>
+            <div style={{ position: "absolute", top: 2, left: statusAutoDelete ? 20 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+          </div>
         </div>
       </div>
 
@@ -915,6 +1011,254 @@ function SettingsTab({ theme, setTheme, wallpaper, setWallpaper, verifyStyle, se
 }
 
 /* ============================================================
+   ВХОД ПО EMAIL
+   ============================================================ */
+function AuthScreen({ onAuth, theme }: { onAuth: () => void; theme: Theme }) {
+  const [step, setStep] = useState<"email" | "code">("email");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+
+  return (
+    <div style={{ width: "100vw", height: "100dvh", background: theme.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "Golos Text, sans-serif", padding: 24 }}>
+      <div style={{ position: "absolute", top: "10%", left: "-20%", width: "80%", height: "80%", background: `radial-gradient(circle, ${theme.accent1}33 0%, transparent 70%)`, filter: "blur(60px)" }} />
+      <div style={{ position: "absolute", bottom: "0%", right: "-20%", width: "80%", height: "80%", background: `radial-gradient(circle, ${theme.accent2}33 0%, transparent 70%)`, filter: "blur(60px)" }} />
+
+      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
+        <div style={{ width: 80, height: 80, borderRadius: 24, background: theme.gradient, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 12px 40px ${theme.accent1}66` }}>
+          <Icon name="MessageCircle" size={36} style={{ color: "#fff" }} />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-1px", background: theme.gradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}>Qwik</div>
+          <div style={{ fontSize: 14, color: "var(--q-text-muted)", marginTop: 4 }}>{step === "email" ? "Войдите по почте" : "Введите код из письма"}</div>
+        </div>
+
+        {step === "email" ? (
+          <>
+            <div className="q-glass" style={{ width: "100%", borderRadius: 14, display: "flex", alignItems: "center", gap: 10, padding: "14px 16px" }}>
+              <Icon name="Mail" size={18} style={{ color: theme.accent1 }} />
+              <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" type="email"
+                style={{ background: "none", border: "none", outline: "none", color: "var(--q-text)", fontSize: 14, flex: 1, fontFamily: "Golos Text, sans-serif" }} />
+            </div>
+            <button onClick={() => email.includes("@") && setStep("code")}
+              style={{ width: "100%", background: theme.gradient, border: "none", borderRadius: 14, padding: "14px", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "Golos Text, sans-serif" }}>
+              Получить код →
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="q-glass" style={{ width: "100%", borderRadius: 14, display: "flex", alignItems: "center", gap: 10, padding: "14px 16px" }}>
+              <Icon name="Key" size={18} style={{ color: theme.accent1 }} />
+              <input value={code} onChange={e => setCode(e.target.value)} placeholder="000000" maxLength={6}
+                style={{ background: "none", border: "none", outline: "none", color: "var(--q-text)", fontSize: 18, flex: 1, fontFamily: "Golos Text, sans-serif", letterSpacing: 4, textAlign: "center" }} />
+            </div>
+            <button onClick={onAuth}
+              style={{ width: "100%", background: theme.gradient, border: "none", borderRadius: 14, padding: "14px", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "Golos Text, sans-serif" }}>
+              Войти в Qwik
+            </button>
+            <button onClick={() => setStep("email")} style={{ background: "none", border: "none", color: "var(--q-text-muted)", fontSize: 13, cursor: "pointer", fontFamily: "Golos Text, sans-serif" }}>
+              ← Изменить почту
+            </button>
+          </>
+        )}
+        <div style={{ fontSize: 11, color: "var(--q-text-muted)", textAlign: "center", marginTop: 8 }}>
+          Подключаясь, вы соглашаетесь с условиями использования и политикой конфиденциальности
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   СОЗДАНИЕ ЧАТА/ГРУППЫ/КАНАЛА
+   ============================================================ */
+function CreateChatScreen({ kind, onClose, onCreate, theme }: { kind: ChatKind; onClose: () => void; onCreate: (name: string, avatar: string) => void; theme: Theme }) {
+  const [name, setName] = useState("");
+  const [avatar, setAvatar] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const title = kind === "group" ? "Новая группа" : kind === "channel" ? "Новый канал" : "Новый чат";
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) {
+      const reader = new FileReader();
+      reader.onload = ev => setAvatar(String(ev.target?.result ?? ""));
+      reader.readAsDataURL(f);
+    }
+  };
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: theme.bg, zIndex: 50, display: "flex", flexDirection: "column" }}>
+      <div className="q-glass" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--q-text-muted)", display: "flex" }}>
+          <Icon name="ArrowLeft" size={20} />
+        </button>
+        <div style={{ flex: 1, fontSize: 16, fontWeight: 700 }}>{title}</div>
+        <button onClick={() => name.trim() && onCreate(name, avatar)} style={{ background: theme.gradient, border: "none", borderRadius: 10, padding: "6px 14px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "Golos Text, sans-serif" }}>
+          Создать
+        </button>
+      </div>
+
+      <div style={{ padding: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <div onClick={() => fileRef.current?.click()} style={{ position: "relative", cursor: "pointer" }}>
+          {avatar ? (
+            <img src={avatar} alt="" style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover" }} />
+          ) : (
+            <div style={{ width: 100, height: 100, borderRadius: "50%", background: theme.gradient, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="Camera" size={32} style={{ color: "#fff" }} />
+            </div>
+          )}
+          <div style={{ position: "absolute", bottom: 0, right: 0, background: theme.accent1, borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${theme.bg}` }}>
+            <Icon name="Plus" size={14} style={{ color: "#fff" }} />
+          </div>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} />
+
+        <div className="q-glass" style={{ width: "100%", borderRadius: 14, padding: "12px 16px" }}>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={kind === "channel" ? "Название канала" : kind === "group" ? "Название группы" : "Имя или @тег"}
+            style={{ width: "100%", background: "none", border: "none", outline: "none", color: "var(--q-text)", fontSize: 15, fontFamily: "Golos Text, sans-serif" }} />
+        </div>
+        <div style={{ fontSize: 12, color: "var(--q-text-muted)", textAlign: "center" }}>
+          {kind === "channel" ? "Каналы — для трансляции сообщений тысячам подписчиков." : kind === "group" ? "Группы — для общения до 200 000 человек." : "Личный чат с одним собеседником."}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ВЫБОР ТИПА ЧАТА (FAB)
+   ============================================================ */
+function CreateMenu({ onPick, onClose, theme }: { onPick: (k: ChatKind) => void; onClose: () => void; theme: Theme }) {
+  return (
+    <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 40, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()} className="q-glass anim-fade-slide" style={{ background: theme.bg, width: "100%", borderRadius: "24px 24px 0 0", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, padding: "8px 8px 14px" }}>Создать</div>
+        {[
+          { kind: "private" as ChatKind, icon: "MessageCircle", label: "Новый чат", desc: "С одним пользователем" },
+          { kind: "group" as ChatKind, icon: "Users", label: "Новая группа", desc: "До 200 000 участников" },
+          { kind: "channel" as ChatKind, icon: "Megaphone", label: "Новый канал", desc: "Трансляция подписчикам" },
+        ].map(it => (
+          <div key={it.kind} onClick={() => onPick(it.kind)} className="q-glass-hover" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", borderRadius: 14, cursor: "pointer" }}>
+            <div style={{ background: `${theme.accent1}22`, borderRadius: 12, width: 42, height: 42, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name={it.icon} size={20} style={{ color: theme.accent1 }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{it.label}</div>
+              <div style={{ fontSize: 12, color: "var(--q-text-muted)", marginTop: 1 }}>{it.desc}</div>
+            </div>
+            <Icon name="ChevronRight" size={16} style={{ color: "var(--q-text-muted)" }} />
+          </div>
+        ))}
+        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 14, padding: 12, fontSize: 14, fontWeight: 600, color: "var(--q-text)", cursor: "pointer", marginTop: 4, fontFamily: "Golos Text, sans-serif" }}>Отмена</button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   VPN/ПРОКСИ ЭКРАН
+   ============================================================ */
+function VpnScreen({ vpns, setVpns, proxyAddr, setProxyAddr, proxyEnabled, setProxyEnabled, onClose, theme }: {
+  vpns: Vpn[]; setVpns: (v: Vpn[]) => void;
+  proxyAddr: string; setProxyAddr: (s: string) => void;
+  proxyEnabled: boolean; setProxyEnabled: (b: boolean) => void;
+  onClose: () => void; theme: Theme;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newProto, setNewProto] = useState("VLESS / TCP");
+  const [newName, setNewName] = useState("");
+  const protocols = ["VLESS / TCP", "VLESS / XHTTP", "VLESS / Reality", "VMess", "Shadowsocks", "Trojan", "Hysteria2", "TUIC"];
+
+  const addVpn = () => {
+    if (!newName.trim()) return;
+    setVpns([...vpns, { id: Date.now(), name: newName, protocol: newProto, active: false }]);
+    setNewName(""); setShowAdd(false);
+  };
+  const importClipboard = async () => {
+    try {
+      const txt = await navigator.clipboard.readText();
+      const proto = txt.startsWith("vless://") ? "VLESS / Reality" : txt.startsWith("vmess://") ? "VMess" : "Импорт";
+      setVpns([...vpns, { id: Date.now(), name: "Импортированный VPN", protocol: proto, active: false }]);
+    } catch {
+      setVpns([...vpns, { id: Date.now(), name: "TestVPN из буфера", protocol: "VLESS / Reality", active: false }]);
+    }
+  };
+  const toggle = (id: number) => setVpns(vpns.map(v => v.id === id ? { ...v, active: !v.active } : { ...v, active: false }));
+  const remove = (id: number) => setVpns(vpns.filter(v => v.id !== id));
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: theme.bg, zIndex: 60, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div className="q-glass" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--q-text-muted)", display: "flex" }}>
+          <Icon name="ArrowLeft" size={20} />
+        </button>
+        <div style={{ flex: 1, fontSize: 16, fontWeight: 700 }}>VPN и прокси</div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+        {/* SOCKS5 */}
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--q-text-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>SOCKS5 / WSS прокси</div>
+        <div className="q-glass" style={{ borderRadius: 14, padding: 14, marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>Использовать прокси для звонков</span>
+            <div onClick={() => setProxyEnabled(!proxyEnabled)} style={{ width: 42, height: 24, borderRadius: 12, background: proxyEnabled ? theme.accent1 : "rgba(255,255,255,0.15)", position: "relative", cursor: "pointer", transition: "background 0.2s" }}>
+              <div style={{ position: "absolute", top: 2, left: proxyEnabled ? 20 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+            </div>
+          </div>
+          <input value={proxyAddr} onChange={e => setProxyAddr(e.target.value)} placeholder="host:port"
+            style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 12px", color: "var(--q-text)", fontSize: 13, fontFamily: "Golos Text, sans-serif", outline: "none" }} />
+          <div style={{ fontSize: 11, color: "var(--q-text-muted)", marginTop: 6 }}>WSS-туннель: wss://nostromo-w3sh.onrender.com</div>
+        </div>
+
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--q-text-muted)", margin: "20px 0 8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Конфигурации VPN</div>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button onClick={() => setShowAdd(true)} style={{ flex: 1, background: theme.gradient, border: "none", borderRadius: 12, padding: "10px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "Golos Text, sans-serif" }}>
+            <Icon name="Plus" size={15} /> Добавить
+          </button>
+          <button onClick={importClipboard} className="q-glass" style={{ flex: 1, border: "none", borderRadius: 12, padding: "10px", fontSize: 13, fontWeight: 700, color: "var(--q-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "Golos Text, sans-serif" }}>
+            <Icon name="Clipboard" size={15} /> Импорт
+          </button>
+        </div>
+
+        {showAdd && (
+          <div className="q-glass anim-fade-slide" style={{ borderRadius: 14, padding: 14, marginBottom: 12 }}>
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Название (например, MyVPN)"
+              style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 12px", color: "var(--q-text)", fontSize: 13, fontFamily: "Golos Text, sans-serif", outline: "none", marginBottom: 8 }} />
+            <select value={newProto} onChange={e => setNewProto(e.target.value)}
+              style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 12px", color: "var(--q-text)", fontSize: 13, fontFamily: "Golos Text, sans-serif", outline: "none", marginBottom: 8 }}>
+              {protocols.map(p => <option key={p} value={p} style={{ background: "#222" }}>{p}</option>)}
+            </select>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={addVpn} style={{ flex: 1, background: theme.gradient, border: "none", borderRadius: 10, padding: 10, fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "Golos Text, sans-serif" }}>Сохранить</button>
+              <button onClick={() => setShowAdd(false)} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "var(--q-text)", cursor: "pointer", fontFamily: "Golos Text, sans-serif" }}>Отмена</button>
+            </div>
+          </div>
+        )}
+
+        {vpns.map(v => (
+          <div key={v.id} className="q-glass" style={{ borderRadius: 14, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ background: v.active ? `${theme.accent1}33` : "rgba(255,255,255,0.05)", borderRadius: 10, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="Shield" size={20} style={{ color: v.active ? theme.accent1 : "var(--q-text-muted)" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{v.name}</div>
+              <div style={{ fontSize: 11, color: "var(--q-text-muted)" }}>{v.protocol}</div>
+            </div>
+            <button onClick={() => toggle(v.id)} style={{ background: v.active ? "#22d65a" : "rgba(255,255,255,0.08)", border: "none", borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              <Icon name={v.active ? "Pause" : "Play"} size={15} style={{ color: "#fff" }} />
+            </button>
+            <button onClick={() => remove(v.id)} style={{ background: "rgba(239,68,68,0.15)", border: "none", borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              <Icon name="Trash2" size={15} style={{ color: "#ef4444" }} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    ГЛАВНЫЙ КОМПОНЕНТ
    ============================================================ */
 type Tab = "home" | "chats" | "contacts" | "profile" | "settings" | "calls";
@@ -923,11 +1267,32 @@ export default function Index() {
   const [tab, setTab] = useState<Tab>("home");
   const [openChat, setOpenChat] = useState<Chat | null>(null);
   const [theme, setThemeState] = useState<Theme>(THEMES[0]);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
   const [wallpaper, setWallpaper] = useState<Wallpaper>(WALLPAPERS[1]);
   const [chats, setChats] = useState<Chat[]>(INIT_CHATS);
   const [stories, setStories] = useState<Story[]>(INIT_STORIES);
   const [viewStory, setViewStory] = useState<Story | null>(null);
   const [verifyStyle, setVerifyStyle] = useState<VerifyStyle>("blue");
+  const [authed, setAuthed] = useState(false);
+  const [showCreate, setShowCreate] = useState<null | ChatKind>(null);
+  const [vpns, setVpns] = useState<Vpn[]>([
+    { id: 1, name: "TestVPN", protocol: "VLESS / Reality", active: false },
+  ]);
+  const [proxyAddr, setProxyAddr] = useState("nostromo-w3sh.onrender.com");
+  const [proxyEnabled, setProxyEnabled] = useState(true);
+  const [statusAutoDelete, setStatusAutoDelete] = useState(true);
+  const [profileAvatar, setProfileAvatar] = useState<string>("");
+  const [profileTag, setProfileTag] = useState("@v_samoilov");
+  const [profileName, setProfileName] = useState("Виктор Самойлов");
+
+  // Удаление статусов через 24ч (симуляция: проверка каждый раз)
+  useEffect(() => {
+    if (!statusAutoDelete) return;
+    const t = setInterval(() => {
+      setStories(st => st);
+    }, 60000);
+    return () => clearInterval(t);
+  }, [statusAutoDelete]);
 
   const applyTheme = useCallback((t: Theme) => {
     document.documentElement.style.setProperty("--q-bg", t.bg);
@@ -963,9 +1328,33 @@ export default function Index() {
   ];
 
   const unreadTotal = chats.reduce((acc, c) => acc + c.unread, 0);
+  const [openVpn, setOpenVpn] = useState(false);
+  const [createMenu, setCreateMenu] = useState(false);
+
+  const createNew = (kind: ChatKind) => {
+    setCreateMenu(false);
+    setShowCreate(kind);
+  };
+
+  const handleCreateChat = (name: string, _avatar: string) => {
+    const newChat: Chat = {
+      id: Date.now(),
+      name: name + (showCreate === "channel" ? " 📢" : showCreate === "group" ? " 👥" : ""),
+      avatar: name.slice(0, 2).toUpperCase(),
+      lastMsg: showCreate === "channel" ? "Канал создан" : showCreate === "group" ? "Группа создана" : "Чат создан",
+      time: "сейчас", unread: 0, online: true, tags: ["новые"],
+    };
+    setChats(c => [newChat, ...c]);
+    setShowCreate(null);
+  };
+
+  if (!authed) return <AuthScreen onAuth={() => setAuthed(true)} theme={theme} />;
+
+  const isLight = themeMode === "light";
+  const bgColor = isLight ? "#f5f5f7" : theme.bg;
 
   return (
-    <div style={{ width: "100vw", height: "100dvh", background: theme.bg, display: "flex", justifyContent: "center", alignItems: "center", fontFamily: "Golos Text, sans-serif" }}>
+    <div style={{ width: "100vw", height: "100dvh", background: bgColor, display: "flex", justifyContent: "center", alignItems: "center", fontFamily: "Golos Text, sans-serif", color: isLight ? "#111" : "var(--q-text)" }}>
       {/* Фоновые блобы */}
       <div style={{ position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
         <div style={{ position: "absolute", top: "-20%", left: "-10%", width: "60%", height: "60%", background: `radial-gradient(circle, ${theme.accent1}22 0%, transparent 70%)`, borderRadius: "50%", filter: "blur(60px)", transition: "background 0.5s ease" }} />
@@ -986,8 +1375,8 @@ export default function Index() {
               {tab === "chats" && <ChatsTab chats={chats} onOpenChat={setOpenChat} theme={theme} />}
               {tab === "contacts" && <ContactsTab theme={theme} />}
               {tab === "calls" && <CallsTab theme={theme} />}
-              {tab === "profile" && <ProfileTab theme={theme} verifyStyle={verifyStyle} />}
-              {tab === "settings" && <SettingsTab theme={theme} setTheme={applyTheme} wallpaper={wallpaper} setWallpaper={setWallpaper} verifyStyle={verifyStyle} setVerifyStyle={setVerifyStyle} />}
+              {tab === "profile" && <ProfileTab theme={theme} verifyStyle={verifyStyle} profileAvatar={profileAvatar} setProfileAvatar={setProfileAvatar} profileName={profileName} setProfileName={setProfileName} profileTag={profileTag} setProfileTag={setProfileTag} />}
+              {tab === "settings" && <SettingsTab theme={theme} setTheme={applyTheme} wallpaper={wallpaper} setWallpaper={setWallpaper} verifyStyle={verifyStyle} setVerifyStyle={setVerifyStyle} themeMode={themeMode} setThemeMode={setThemeMode} onOpenVpn={() => setOpenVpn(true)} statusAutoDelete={statusAutoDelete} setStatusAutoDelete={setStatusAutoDelete} />}
             </div>
           )}
         </div>
@@ -1010,6 +1399,17 @@ export default function Index() {
             ))}
           </div>
         )}
+
+        {/* FAB кнопка создать */}
+        {!openChat && (tab === "home" || tab === "chats") && (
+          <button onClick={() => setCreateMenu(true)} style={{ position: "absolute", bottom: 80, right: 20, background: theme.gradient, border: "none", borderRadius: "50%", width: 54, height: 54, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 8px 24px ${theme.accent1}66`, zIndex: 30 }}>
+            <Icon name="MessageSquarePlus" size={22} style={{ color: "#fff" }} />
+          </button>
+        )}
+
+        {createMenu && <CreateMenu onPick={createNew} onClose={() => setCreateMenu(false)} theme={theme} />}
+        {showCreate && <CreateChatScreen kind={showCreate} onClose={() => setShowCreate(null)} onCreate={handleCreateChat} theme={theme} />}
+        {openVpn && <VpnScreen vpns={vpns} setVpns={setVpns} proxyAddr={proxyAddr} setProxyAddr={setProxyAddr} proxyEnabled={proxyEnabled} setProxyEnabled={setProxyEnabled} onClose={() => setOpenVpn(false)} theme={theme} />}
       </div>
     </div>
   );
