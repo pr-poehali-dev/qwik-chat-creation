@@ -94,11 +94,11 @@ function StatusTick({ status, accent1 }: { status: "sent" | "delivered" | "read"
   if (status === "delivered") return <Icon name="CheckCheck" size={12} style={{ color: "rgba(255,255,255,0.4)" }} />;
   return <Icon name="CheckCheck" size={12} style={{ color: accent1 }} />;
 }
-function VerifyBadge({ style }: { style: VerifyStyle }) {
+function VerifyBadge({ style, size = 18 }: { style: VerifyStyle; size?: number }) {
   if (style === "none") return null;
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: style === "blue" ? "#0ea5e9" : "#333", marginLeft: 4, flexShrink: 0 }}>
-      <Icon name="Check" size={9} style={{ color: "#fff" }} />
+    <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: size, height: size, borderRadius: "50%", background: style === "blue" ? "#0ea5e9" : "#555", flexShrink: 0 }}>
+      <span style={{ color: "#fff", fontSize: size * 0.55, fontWeight: 900, lineHeight: 1 }}>✓</span>
     </div>
   );
 }
@@ -199,7 +199,6 @@ function HomeTab({ chats, onOpenChat, onDeleteChat, theme, stories, onViewStory,
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
             <span style={{ fontWeight: 600, fontSize: 15 }}>{chat.name}</span>
-            <VerifyBadge style={verifyStyle} />
           </div>
           <span style={{ fontSize: 11, color: "var(--q-text-muted)" }}>{chat.time}</span>
         </div>
@@ -219,8 +218,8 @@ function HomeTab({ chats, onOpenChat, onDeleteChat, theme, stories, onViewStory,
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }} onClick={() => setChatMenu(null)}>
       <div style={{ padding: "20px 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-1px", background: theme.gradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Qwik</div>
-          <VerifyBadge style={verifyStyle} />
+          <span style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-1px", background: theme.gradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}>Qwik</span>
+          <VerifyBadge style={verifyStyle} size={20} />
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="q-glass" style={{ border: "none", borderRadius: 12, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--q-text-muted)" }}>
@@ -809,7 +808,7 @@ function ProfileTab({ theme, verifyStyle }: { theme: Theme; verifyStyle: VerifyS
       <div style={{ display: "flex", gap: 8, padding: "0 20px 20px" }}>
         {[{ label: "Чатов", val: "23" }, { label: "Контактов", val: "147" }, { label: "Медиа", val: "1.2K" }].map(s => (
           <div key={s.label} className="q-glass" style={{ flex: 1, borderRadius: 16, padding: "14px 10px", textAlign: "center" }}>
-            <div style={{ fontSize: 20, fontWeight: 800, background: theme.gradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.val}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, background: theme.gradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", color: "transparent" }}>{s.val}</div>
             <div style={{ fontSize: 11, color: "var(--q-text-muted)", marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
